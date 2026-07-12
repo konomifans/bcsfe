@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle Cats 存檔編輯器</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #111;
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 48px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-align: center;
+}
+.subtitle { color: #888; font-size: .85rem; text-align: center; margin-bottom: 32px; }
+
+/* ── Steps ── */
+.steps { display: flex; gap: 8px; align-items: center; margin-bottom: 32px; }
+.step {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .85rem;
+  background: #222; color: #555; border: 2px solid #333;
+  transition: all .3s;
+}
+.step.active { background: #f5a623; color: #000; border-color: #f5a623; }
+.step.done   { background: #4caf50; color: #fff; border-color: #4caf50; }
+.step-line   { flex: 1; height: 2px; background: #333; }
+
+/* ── Panel ── */
+.panel {
+  width: 100%; max-width: 480px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  padding: 24px;
+}
+.panel h2 { font-size: 1.1rem; margin-bottom: 6px; }
+.panel p  { color: #888; font-size: .85rem; margin-bottom: 20px; line-height: 1.5; }
+
+/* ── Tabs ── */
+.tabs { display: flex; border-radius: 10px; overflow: hidden; border: 1px solid #2a2a2a; margin-bottom: 20px; }
+.tab {
+  flex: 1; padding: 10px; text-align: center; cursor: pointer;
+  font-size: .85rem; font-weight: 600; color: #666;
+  background: #111; border: none; transition: all .2s;
+}
+.tab.active { background: #2a2a2a; color: #eee; }
+
+/* ── Inputs ── */
+label { display: block; font-size: .78rem; color: #888; margin-bottom: 5px; }
+input[type=text], input[type=number], select {
+  width: 100%;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #eee;
+  font-size: .95rem;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus { border-color: #f5a623; }
+input[type=number]:disabled { opacity: .35; }
+
+/* ── Upload zone ── */
+.upload-zone {
+  border: 2px dashed #333;
+  border-radius: 10px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 16px;
+  transition: border-color .2s;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: #f5a623; }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-zone span { color: #888; font-size: .85rem; }
+.upload-zone strong { color: #eee; }
+
+/* ── Item grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.field label { margin-bottom: 4px; }
+.field input { margin-bottom: 0; }
+
+/* ── Cat ops ── */
+.cat-section { margin-top: 20px; border-top: 1px solid #2a2a2a; padding-top: 16px; }
+.cat-section h3 { font-size: .9rem; color: #aaa; margin-bottom: 10px; }
+.cat-btns { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Buttons ── */
+.btn {
+  width: 100%; padding: 12px;
+  border-radius: 10px; border: none;
+  font-size: .95rem; font-weight: 700;
+  cursor: pointer; display: flex;
+  align-items: center; justify-content: center; gap: 8px;
+  transition: opacity .15s, transform .1s;
+}
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary  { background: #f5a623; color: #000; }
+.btn-green    { background: #4caf50; color: #fff; }
+.btn-blue     { background: #2196f3; color: #fff; }
+.btn-ghost    { background: #222; color: #aaa; border: 1px solid #333; }
+.btn-sm       { width: auto; padding: 7px 14px; font-size: .82rem; }
+
+/* ── Result box ── */
+.result-box {
+  background: #222; border: 1px solid #333;
+  border-radius: 10px; padding: 16px; margin-top: 14px;
+  display: none;
+}
+.result-box.show { display: block; }
+.code-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.code-label { font-size: .75rem; color: #888; margin-bottom: 4px; }
+code { font-size: 1.2rem; font-weight: 700; color: #f5a623; letter-spacing: 2px; }
+code.green { color: #4caf50; }
+.warn { color: #ef5350; font-size: .78rem; margin-top: 8px; }
+
+/* ── Info chips ── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.chip {
+  background: #222; border: 1px solid #2a2a2a;
+  border-radius: 8px; padding: 7px 12px; font-size: .8rem;
+}
+.chip span { color: #666; display: block; font-size: .7rem; margin-bottom: 2px; }
+
+/* ── Spinner ── */
+.spinner {
+  width: 16px; height: 16px; display: none;
+  border: 2px solid rgba(0,0,0,.2); border-top-color: #000;
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+.btn-green .spinner, .btn-blue .spinner { border-color: rgba(255,255,255,.2); border-top-color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
+  background: #222; border: 1px solid #333; border-radius: 10px;
+  padding: 10px 20px; font-size: .88rem; white-space: nowrap;
+  opacity: 0; transition: all .3s; pointer-events: none; z-index: 99;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#toast.ok  { border-color: #4caf50; color: #4caf50; }
+#toast.err { border-color: #ef5350; color: #ef5350; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>🐱 Battle Cats 存檔編輯器</h1>
+<p class="subtitle">簡單三步驟：取得存檔 → 修改 → 儲存回去</p>
+
+<!-- Step indicators -->
+<div class="steps">
+  <div class="step active" id="s1">1</div>
+  <div class="step-line"></div>
+  <div class="step" id="s2">2</div>
+  <div class="step-line"></div>
+  <div class="step" id="s3">3</div>
+</div>
+
+<!-- ══ STEP 1: 取得存檔 ══ -->
+<div class="panel" id="step1">
+  <h2>步驟一：取得存檔</h2>
+  <p>上傳你的 SAVE_DATA 檔案，或直接輸入遊戲內的轉移碼。</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('file')">📂 上傳檔案</button>
+    <button class="tab" onclick="switchTab('code')">🔑 輸入轉移碼</button>
+  </div>
+
+  <!-- 上傳檔案 -->
+  <div id="tabFile">
+    <div class="upload-zone" id="dropZone">
+      <input type="file" id="fileInput">
+      <div class="icon">📂</div>
+      <span><strong>點擊</strong>或拖曳 SAVE_DATA 到這裡</span>
+    </div>
+    <button class="btn btn-primary" id="uploadBtn" disabled>
+      <span class="spinner" id="uploadSpin"></span>
+      上傳存檔
+    </button>
+  </div>
+
+  <!-- 轉移碼 -->
+  <div id="tabCode" class="hidden">
+    <label>轉移碼</label>
+    <input type="text" id="transferCode" placeholder="遊戲內「發行轉移碼」取得">
+    <label>驗證碼</label>
+    <input type="text" id="confirmCode" placeholder="四位數字">
+    <label>遊戲地區</label>
+    <select id="ccSelect">
+      <option value="en">英文版</option>
+      <option value="jp">日文版</option>
+      <option value="tw">台灣版</option>
+      <option value="kr">韓文版</option>
+    </select>
+    <button class="btn btn-primary" id="dlCodesBtn">
+      <span class="spinner" id="dlCodesSpin"></span>
+      下載存檔
+    </button>
+  </div>
+</div>
+
+<!-- ══ STEP 2: 修改 ══ -->
+<div class="panel hidden" id="step2">
+  <h2>步驟二：修改存檔</h2>
+
+  <!-- 存檔資訊 -->
+  <div class="chips" id="chips"></div>
+
+  <!-- 道具 -->
+  <div class="grid" id="itemGrid"></div>
+
+  <div style="display:flex;gap:8px;margin-top:14px;">
+    <button class="btn btn-ghost btn-sm" id="maxAllBtn" style="flex:1">⚡ 全部最大值</button>
+    <button class="btn btn-primary btn-sm" id="applyBtn" style="flex:1">
+      <span class="spinner" id="applySpin"></span>
+      ✓ 套用
+    </button>
+  </div>
+
+  <!-- 貓咪 -->
+  <div class="cat-section">
+    <h3>🐾 貓咪操作</h3>
+    <div class="cat-btns">
+      <button class="btn btn-ghost" onclick="catOp('unlock_all')">🔓 解鎖全部貓咪</button>
+      <button class="btn btn-ghost" onclick="catOp('true_form_all')">✨ 全部升真形態</button>
+      <button class="btn btn-ghost" onclick="catOp('max_level_all')">⬆️ 全部升最高等</button>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <button class="btn btn-blue" onclick="goStep(3)">繼續 →</button>
+  </div>
+</div>
+
+<!-- ══ STEP 3: 儲存 ══ -->
+<div class="panel hidden" id="step3">
+  <h2>步驟三：儲存存檔</h2>
+  <p>選擇要怎麼把修改後的存檔放回去。</p>
+
+  <!-- 下載檔案 -->
+  <button class="btn btn-green" id="dlFileBtn" style="margin-bottom:10px;">
+    <span class="spinner" id="dlFileSpin"></span>
+    ⬇️ 下載 SAVE_DATA 檔案
+  </button>
+  <p style="font-size:.78rem;color:#666;margin-bottom:20px;">下載後手動放回手機。</p>
+
+  <!-- 取得轉移碼 -->
+  <button class="btn btn-blue" id="getCodesBtn">
+    <span class="spinner" id="getCodesSpin"></span>
+    📤 上傳並取得新轉移碼
+  </button>
+  <p style="font-size:.78rem;color:#666;margin-top:6px;margin-bottom:0;">上傳至伺服器，在遊戲內用轉移碼還原。</p>
+
+  <div class="result-box" id="codesBox">
+    <div class="code-row">
+      <div>
+        <div class="code-label">轉移碼</div>
+        <code id="codeT"></code>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="copy('codeT')">複製</button>
+    </div>
+    <div class="code-row" style="margin-bottom:0;">
+      <div>
+        <div class="code-label">驗證碼</div>
+        <code class="green" id="codeC"></code>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="copy('codeC')">複製</button>
+    </div>
+    <p class="warn">⚠️ 轉移碼只能用一次，請立刻在遊戲內輸入！</p>
+  </div>
+
+  <button class="btn btn-ghost" style="margin-top:16px;" onclick="restart()">↩ 重新開始</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let token = null;
+
+const ITEMS = [
+  { key:'catfood',          label:'🐟 貓糧',      max:2147483647 },
+  { key:'xp',               label:'⭐ XP',         max:2147483647 },
+  { key:'normal_tickets',   label:'🎟 普通券',      max:2147483647 },
+  { key:'rare_tickets',     label:'🎫 稀有券',      max:2147483647 },
+  { key:'platinum_tickets', label:'🏅 白金券',      max:2147483647 },
+  { key:'legend_tickets',   label:'🌟 傳說券',      max:2147483647 },
+  { key:'platinum_shards',  label:'💠 白金碎片',    max:2147483647 },
+  { key:'np',               label:'🔮 NP',          max:2147483647 },
+  { key:'leadership',       label:'👑 領導力',      max:32767 },
+];
+
+// ── Tabs ──────────────────────────────────────
+function switchTab(t) {
+  document.getElementById('tabFile').classList.toggle('hidden', t !== 'file');
+  document.getElementById('tabCode').classList.toggle('hidden', t !== 'code');
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0) === (t === 'file'));
+  });
+}
+
+// ── Step navigation ───────────────────────────
+function goStep(n) {
+  document.getElementById('step1').classList.add('hidden');
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step3').classList.add('hidden');
+  document.getElementById('step' + n).classList.remove('hidden');
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('s' + i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    if (i === n) el.classList.add('active');
+  });
+}
+
+function restart() {
+  if (token) fetch('/api/reset', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token})}).catch(()=>{});
+  token = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('codesBox').classList.remove('show');
+  goStep(1);
+}
+
+// ── Upload file ───────────────────────────────
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const dropZone  = document.getElementById('dropZone');
+
+fileInput.addEventListener('change', () => { uploadBtn.disabled = !fileInput.files.length; });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; uploadBtn.disabled = false; }
+});
+
+uploadBtn.addEventListener('click', async () => {
+  if (!fileInput.files.length) return;
+  busy('uploadSpin', uploadBtn, true);
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  try {
+    const j = await post('/api/upload', null, fd);
+    token = j.token;
+    renderStep2(j.info);
+    goStep(2);
+    toast('存檔讀取成功！', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { busy('uploadSpin', uploadBtn, false); }
+});
+
+// ── Download from codes ───────────────────────
+document.getElementById('dlCodesBtn').addEventListener('click', async () => {
+  const tc = document.getElementById('transferCode').value.trim();
+  const cc_v = document.getElementById('confirmCode').value.trim();
+  const cc  = document.getElementById('ccSelect').value;
+  if (!tc || !cc_v) { toast('請填寫轉移碼和驗證碼', 'err'); return; }
+  const btn = document.getElementById('dlCodesBtn');
+  busy('dlCodesSpin', btn, true);
+  try {
+    const j = await post('/api/download_from_codes', {transfer_code:tc, confirmation_code:cc_v, cc});
+    token = j.token;
+    renderStep2(j.info);
+    goStep(2);
+    toast('存檔下載成功！', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { busy('dlCodesSpin', btn, false); }
+});
+
+// ── Step 2 render ─────────────────────────────
+function renderStep2(info) {
+  document.getElementById('chips').innerHTML = [
+    {l:'地區', v:(info.cc||'?').toUpperCase()},
+    {l:'版本', v:info.game_version||'?'},
+    {l:'已解鎖貓咪', v:`${info.unlocked_cats||0} / ${info.total_cats||0}`},
+  ].map(c => `<div class="chip"><span>${c.l}</span>${c.v}</div>`).join('');
+
+  document.getElementById('itemGrid').innerHTML = ITEMS.map(f => {
+    const v = info[f.key] ?? '';
+    const dis = info[f.key] == null ? 'disabled' : '';
+    return `<div class="field">
+      <label>${f.label}</label>
+      <input type="number" id="f_${f.key}" value="${v}" min="0" max="${f.max}" ${dis}>
+    </div>`;
+  }).join('');
+}
+
+// ── Max all ───────────────────────────────────
+document.getElementById('maxAllBtn').addEventListener('click', () => {
+  ITEMS.forEach(f => {
+    const el = document.getElementById('f_' + f.key);
+    if (el && !el.disabled) el.value = f.max;
+  });
+  toast('填入最大值，記得按「套用」', 'ok');
+});
+
+// ── Apply edits ───────────────────────────────
+document.getElementById('applyBtn').addEventListener('click', async () => {
+  if (!token) return;
+  const payload = {token};
+  ITEMS.forEach(f => {
+    const el = document.getElementById('f_' + f.key);
+    if (el && !el.disabled && el.value !== '') payload[f.key] = parseInt(el.value, 10);
+  });
+  const btn = document.getElementById('applyBtn');
+  busy('applySpin', btn, true);
+  try {
+    const j = await post('/api/edit', payload);
+    renderStep2(j.info);
+    toast('✅ 套用成功！', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { busy('applySpin', btn, false); }
+});
+
+// ── Cat ops ───────────────────────────────────
+async function catOp(op) {
+  if (!token) return;
+  try {
+    const j = await post('/api/edit', {token, cat_operation: op});
+    renderStep2(j.info);
+    toast('✅ ' + (j.changes?.cat_operation || '完成'), 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Step 3: Download file ─────────────────────
+document.getElementById('dlFileBtn').addEventListener('click', async () => {
+  if (!token) return;
+  const btn = document.getElementById('dlFileBtn');
+  busy('dlFileSpin', btn, true);
+  try {
+    const res = await fetch('/api/download', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({token})
+    });
+    if (!res.ok) { const j=await res.json(); throw new Error(j.error); }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'SAVE_DATA'; a.click();
+    toast('✅ 下載完成！', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { busy('dlFileSpin', btn, false); }
+});
+
+// ── Step 3: Get transfer codes ────────────────
+document.getElementById('getCodesBtn').addEventListener('click', async () => {
+  if (!token) return;
+  if (!confirm('確定上傳至伺服器並取得新的轉移碼？')) return;
+  const btn = document.getElementById('getCodesBtn');
+  busy('getCodesSpin', btn, true);
+  try {
+    const j = await post('/api/get_codes', {token});
+    document.getElementById('codeT').textContent = j.transfer_code;
+    document.getElementById('codeC').textContent = j.confirmation_code;
+    document.getElementById('codesBox').classList.add('show');
+    toast('✅ 取得轉移碼！', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { busy('getCodesSpin', btn, false); }
+});
+
+// ── Helpers ───────────────────────────────────
+async function post(url, body, form) {
+  const res = form
+    ? await fetch(url, {method:'POST', body: form})
+    : await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await res.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+
+function busy(spinnerId, btn, on) {
+  document.getElementById(spinnerId).style.display = on ? 'block' : 'none';
+  btn.disabled = on;
+}
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 3000);
+}
+
+function copy(id) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent)
+    .then(() => toast('已複製！', 'ok'));
+}
+</script>
+</body>
+</html>
